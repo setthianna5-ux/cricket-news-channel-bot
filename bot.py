@@ -165,9 +165,10 @@ NEWS TEXT: {article['body']}
                 time.sleep(5)
                 continue
 
-            if r.status_code == 429:  # rate limit -> thoda ruko
-                log(f"Gemini rate limit ({model}), waiting...")
-                time.sleep(20 * (attempt + 1))
+            if r.status_code in (429, 500, 503):  # rate limit / overload -> thoda ruko
+                wait = 15 * (attempt + 1)
+                log(f"Gemini busy ({model}) [{r.status_code}], {wait}s baad retry...")
+                time.sleep(wait)
                 continue
             if r.status_code in (404, 400) and "not found" in r.text.lower():
                 log(f"Model {model} available nahi, next try...")
@@ -272,8 +273,12 @@ def main():
         rw = rewrite(art)
         if rw:
             caption = build_caption(rw["headline"], rw["summary"])
+        elif GEMINI_API_KEY:
+            # Gemini abhi down hai: ye news post nahi karenge, agle run mein dobara try hogi
+            log("Gemini fail - baaki news agle run mein try hongi")
+            break
         else:
-            # AI fail: sirf headline, koi copied text nahi
+            # Gemini key hi nahi hai: sirf headline
             caption = build_caption("🏏 " + clean(art["title"]), "")
             caption = caption.replace("\n\n\n", "\n\n")
 
